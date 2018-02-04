@@ -38,22 +38,44 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
 
+        self.current_pose = None
+        self.all_waypoints = None
         rospy.spin()
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        pass
+        # TODO: implement further
+        self.current_pose = msg
 
-    def waypoints_cb(self, waypoints):
+
+    def waypoints_cb(self, lane):
         # TODO: Implement
-        pass
+        # TODO: determine what the waypoints will be, will serve as input to DBW
+        # Store the waypoints for future reference
+        if self.all_waypoints is None:
+            self.all_waypoints = lane.waypoints
+
+        assert self.current_pose is None
+
+        final_lane = Lane()
+        final_lane.header.frame_id = '/final_waypoints'
+        final_lane.header.stamp = rospy.Time(0)
+        # we don't have a current position so we just push the list of waypoints
+        # we received directly through to the list that gets pushed to final_waypoints
+        final_lane.waypoints = lane.waypoints[:LOOKAHEAD_WPS]
+        #for i, wp in enumerate(final_lane.waypoints):
+            #rospy.loginfo("for waypoint {} found x: {}, y: {}".format(i, wp.pose.pose.position.x, wp.pose.pose.position.y))
+
+        self.final_waypoints_pub.publish(final_lane)
+
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        # TODO: take action once a traffic light with certain red state is observed
         pass
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
+        # TODO: consider moving around waypoint using path planning
         pass
 
     def get_waypoint_velocity(self, waypoint):
