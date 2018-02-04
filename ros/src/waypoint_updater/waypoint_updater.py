@@ -43,34 +43,48 @@ class WaypointUpdater(object):
 
         self.current_pose = None
         self.all_waypoints = None
-        rospy.spin()
+
+        self.loop()
+
+
+    def loop(self):
+        rate = rospy.Rate(50) # 50Hz
+        while not rospy.is_shutdown():
+            if self.current_pose is not None and self.all_waypoints is not None:
+                quat = self.current_pose.pose.orientation
+                quat_array = [quat.x, quat.y, quat.z, quat.w]
+                theta = tf.transformations.euler_from_quaternion(quat_array)[2]
+
+                # Now that we have an update on position we can determine which waypoints are ahead of us
+                cp = CarPosition(self.current_pose.pose.position.x, self.current_pose.pose.position.y, theta)
+                # Calculate car relative waypoints
+                rel_wp = car_coord_waypoints(cp, self.all_waypoints)
+                # Create a list that contains the car relative waypoints and the index of the waypoints
+                wps = [[rel, idx] for idx, rel in enumerate(rel_wp)]
+                # Remove all waypoints that are not in front of us
+                wps = list(filter(lambda wp: wp[0].y > 0, wps))
+                # Sort the waypoints on distance to us
+                sorted_wps = sorted(wps, key=lambda wp: math.sqrt((wp[0].x - cp.x)**2 + (wp[0].y - cp.y)**2))
+                # Backout the original waypoints
+                orig_waypoints = [self.all_waypoints[i[1]] for i in sorted_wps]
+
+                final_lane = Lane()
+                final_lane.header.frame_id = '/world'
+                final_lane.header.stamp = rospy.Time().now()
+                final_lane.waypoints = orig_waypoints[:LOOKAHEAD_WPS]
+
+                # TODO: add setting velocity of waypoints
+
+                self.final_waypoints_pub.publish(final_lane)
+
+
+            rate.sleep()
 
     def pose_cb(self, msg):
         self.current_pose = msg
 
-        if self.all_waypoints is None:
-            return
-
-        quat = msg.pose.orientation
-        quat_array = [quat.x, quat.y, quat.z, quat.w]
-        theta = tf.transformations.euler_from_quaternion(quat_array)[2]
-
-        # Now that we have an update on position we can determine which waypoints are ahead of us
-        cp = CarPosition(msg.pose.position.x, msg.pose.position.y, theta)
-        rel_wp = car_coord_waypoints(cp, self.all_waypoints)
-        wps = [[rel, org] for rel, org in zip(rel_wp, self.all_waypoints)]
-        sorted_wps = sorted(wps, key=lambda wp: math.sqrt((wp[0].x - cp.x)**2 + (wp[0].y - cp.y)**2))
-        orig_waypoints = [wp[1] for wp in sorted_wps]
 
 
-        final_lane = Lane()
-        final_lane.header.frame_id = '/final_waypoints'
-        final_lane.header.stamp = rospy.Time(0)
-        final_lane.waypoints = orig_waypoints[:LOOKAHEAD_WPS]
-        #for i, wp in enumerate(final_lane.waypoints):
-            #rospy.loginfo("for waypoint {} found x: {}, y: {}".format(i, wp.pose.pose.position.x, wp.pose.pose.position.y))
-
-        self.final_waypoints_pub.publish(final_lane)
 
     def waypoints_cb(self, lane):
         # TODO: Implement
@@ -79,16 +93,10 @@ class WaypointUpdater(object):
         if self.all_waypoints is None:
             self.all_waypoints = lane.waypoints
 
-        assert self.current_pose is None
-
         final_lane = Lane()
         final_lane.header.frame_id = '/final_waypoints'
         final_lane.header.stamp = rospy.Time(0)
-        # we don't have a current position so we just push the list of waypoints
-        # we received directly through to the list that gets pushed to final_waypoints
         final_lane.waypoints = lane.waypoints[:LOOKAHEAD_WPS]
-        #for i, wp in enumerate(final_lane.waypoints):
-            #rospy.loginfo("for waypoint {} found x: {}, y: {}".format(i, wp.pose.pose.position.x, wp.pose.pose.position.y))
 
         self.final_waypoints_pub.publish(final_lane)
 
