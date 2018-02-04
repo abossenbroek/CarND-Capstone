@@ -5,6 +5,7 @@ import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped, PoseStamped
+from styx_msgs.msg import Lane, Waypoint
 import math
 
 from twist_controller import Controller
@@ -63,6 +64,7 @@ class DBWNode(object):
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.vehicle_state.update_dbw_enabled)
         rospy.Subscriber('/current_pose', PoseStamped, self.vehicle_state.update_position)
+        rospy.Subscriber('/final_waypoints', Lane, self.vehicle_state.update_waypoints)
 
         self.twist_cmd = None
 
@@ -81,6 +83,7 @@ class DBWNode(object):
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
             rospy.loginfo(self.vehicle_state.get_state())
+            rospy.loginfo(self.vehicle_state.car_coord_waypoints())
             rate.sleep()
 
     def twist_cmd_cb(self, msg):
