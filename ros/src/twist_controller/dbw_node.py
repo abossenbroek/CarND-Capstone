@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+from vehicle_state import VehicleState
 import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PoseStamped
 import math
 
 from twist_controller import Controller
@@ -57,13 +58,13 @@ class DBWNode(object):
         # self.controller = Controller(<Arguments you wish to provide>)
 
         # TODO: Subscribe to all the topics you need to
-        rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
+        self.vehicle_state = VehicleState()
+        rospy.Subscriber('/current_velocity', TwistStamped, self.vehicle_state.update_velocity)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb)
-        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.vehicle_state.update_dbw_enabled)
+        rospy.Subscriber('/current_pose', PoseStamped, self.vehicle_state.update_position)
 
-        self.current_velocity = None
         self.twist_cmd = None
-        self.dbw_enabled = None
 
         self.loop()
 
@@ -79,16 +80,11 @@ class DBWNode(object):
             #                                                     <any other argument you need>)
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
+            rospy.loginfo(self.vehicle_state.get_state())
             rate.sleep()
-
-    def current_velocity_cb(self, msg):
-        self.current_velocity = msg
 
     def twist_cmd_cb(self, msg):
         self.twist_cmd = msg
-
-    def dbw_enabled_cb(self, msg):
-        self.dbw_enabled = msg
 
     def publish(self, throttle, brake, steer):
         tcmd = ThrottleCmd()
