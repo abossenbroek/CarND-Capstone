@@ -4,3 +4,8 @@ build
 devel
 
 profile.tmp
+
+imgs/camera/*jpg
+
+*.zip
+*.bag

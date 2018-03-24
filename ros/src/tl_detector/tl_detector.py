@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+from cv_bridge import CvBridge, CvBridgeError
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -48,6 +49,8 @@ class TLDetector(object):
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
+
+        self.bridge = CvBridge()
 
         rospy.spin()
 
@@ -89,6 +92,11 @@ class TLDetector(object):
         else:
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
         self.state_count += 1
+
+        cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+        file_name = '/capstone/imgs/camera/test_{}.jpg'.format(self.state_count)
+        cv2.imwrite(file_name, cv_image)
+
 
     def get_closest_waypoint(self, pose):
         """Identifies the closest path waypoint to the given position
